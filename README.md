@@ -1,5 +1,8 @@
 # Hedwig Slack Adapter
 
+Fork differences: append slack message metadata to "private" key, to access slack message internals.
+
+
 > A Slack Adapter for [Hedwig](https://github.com/hedwig-im/hedwig)
 
 [![Build Status](https://www.travis-ci.org/hedwig-im/hedwig_slack.svg?branch=master)](https://www.travis-ci.org/hedwig-im/hedwig_slack)

@@ -73,6 +73,7 @@ defmodule Hedwig.Adapters.Slack do
       room: msg["channel"],
       text: msg["text"],
       type: "message",
+      private: msg,
       user: %Hedwig.User{
         id: user,
         name: users[user]["name"]
