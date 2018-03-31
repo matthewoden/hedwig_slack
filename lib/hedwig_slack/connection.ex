@@ -90,7 +90,7 @@ defmodule HedwigSlack.Connection do
   def websocket_info({:ws_send, msg}, _from, %{next_id: id} = state) do
     msg = Map.put(msg, :id, id)
     Logger.debug "OUTGOING > #{inspect msg}"
-    msg = Jason.encode!(msg) |> IO.inspect()
+    msg = Jason.encode!(msg)
 
     {:reply, {:text, msg}, %{state | next_id: id + 1}}
   end
