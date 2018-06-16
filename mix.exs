@@ -28,7 +28,7 @@ defmodule HedwigSlack.Mixfile do
   end
 
   defp deps do
-    [{:hackney, "~> 1.9"},
+    [{:hackney, "~> 1.12"},
      {:hedwig, "~> 1.0"},
      {:jason, "~> 1.0"},
      {:websocket_client, "~> 1.3"},
