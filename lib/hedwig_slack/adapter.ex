@@ -3,13 +3,14 @@ defmodule Hedwig.Adapters.Slack do
 
   require Logger
 
-  alias HedwigSlack.{Connection, RTM}
+  alias HedwigSlack.{Connection, RTM, HTTP}
 
-  defmodule State do
+  defmodule State do 
     defstruct conn: nil,
               conn_ref: nil,
               channels: %{},
               groups: %{},
+              team_id: nil,
               id: nil,
               name: nil,
               opts: nil,
@@ -25,18 +26,27 @@ defmodule Hedwig.Adapters.Slack do
   end
 
   def handle_cast({:send, msg}, %{conn: conn} = state) do
-    Connection.ws_send(conn, slack_message(msg))
+    slack_message(msg)
+    |> dispatch(state)
+
     {:noreply, state}
   end
 
-  def handle_cast({:reply, %{user: user, text: text} = msg}, %{conn: conn, users: _users} = state) do
-    msg = %{msg | text: "<@#{user.id}|#{user.name}>: #{text}"}
-    Connection.ws_send(conn, slack_message(msg))
+  def handle_cast({:reply, %{user: user, text: text} = msg}, state) do
+      msg
+      |> Map.merge(%{ text: "<@#{user.id}|#{user.name}>: #{text}"})
+      |> slack_message()
+      |> dispatch(state)
+
     {:noreply, state}
   end
 
-  def handle_cast({:emote, %{text: _text} = msg}, %{conn: conn} = state) do
-    Connection.ws_send(conn, slack_message(msg, %{subtype: "me_message"}))
+  def handle_cast({:emote, %{text: _text} = msg}, state) do
+    msg
+    |> Map.merge(%{subtype: "me_message"})
+    |> slack_message()
+    |> dispatch(state)
+
     {:noreply, state}
   end
 
@@ -96,11 +106,15 @@ defmodule Hedwig.Adapters.Slack do
   end
 
   def handle_info({:self, %{"id" => id, "name" => name}}, state) do
-    {:noreply, %{state | id: id, name: name}}
+     {:noreply, %{state | id: id, name: name}}
   end
 
   def handle_info({:users, users}, state) do
     {:noreply, %{state | users: reduce(users, state.users)}}
+  end
+
+  def handle_info({:team, team}, state) do
+    {:noreply, %{state | team_id: team["id"] }}
   end
 
   def handle_info(%{"type" => "team_join", "user" => user}, state) do
@@ -147,13 +161,36 @@ defmodule Hedwig.Adapters.Slack do
   end
 
   defp slack_message(%Hedwig.Message{} = msg, overrides \\ %{}) do
-    Map.merge(%{
+    attachments = Map.get(msg, :private, %{}) |> Map.get("attachments", [])
+    msg = Map.merge(%{
       channel: msg.room, 
       text: msg.text, 
       type: msg.type, 
       thread_ts: Map.get(msg, :thread_ts),
-      reply_broadcast: Map.get(msg, :reply_broadcast, false)
+      reply_broadcast: Map.get(msg, :reply_broadcast, false),
+      attachments: attachments
     }, overrides)
+
+    case attachments do
+      [] ->
+        {:rtm, msg }
+      _ ->
+        {:http, msg }
+    end
+  end
+
+  defp dispatch({:http, msg}, state) do
+    HTTP.post("/chat.postMessage", [ 
+      body: Map.merge(msg, %{as_user: true}),
+      headers: [
+        {"Content-Type", "application/json; charset=utf-8"},
+        {"Authorization", "Bearer #{state.token}"}
+      ]
+    ])
+  end
+
+  defp dispatch({:rtm, msg }, state) do
+    Connection.ws_send(state.conn, msg)
   end
 
   defp put_channel_user(channels, channel_id, user_id) do
@@ -181,6 +218,7 @@ defmodule Hedwig.Adapters.Slack do
   end
 
   defp handle_rtm_data(data) do
+    Kernel.send(self(), {:team, data["team"]})
     Kernel.send(self(), {:channels, data["channels"]})
     Kernel.send(self(), {:groups, data["groups"]})
     Kernel.send(self(), {:self, data["self"]})

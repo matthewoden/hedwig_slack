@@ -1,6 +1,6 @@
 # Hedwig Slack Adapter
 
-> **Fork differences:** append slack message metadata to "private" key, to access slack message internals. Adds support for threading.
+> **Fork differences:** append slack message metadata to "private" key, to access slack message internals. Adds support for threading and attachments.
 
 > A Slack Adapter for [Hedwig](https://github.com/hedwig-im/hedwig)
 
