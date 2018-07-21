@@ -25,7 +25,7 @@ defmodule Hedwig.Adapters.Slack do
     {:ok, %State{opts: opts, robot: robot, token: token}}
   end
 
-  def handle_cast({:send, msg}, %{conn: conn} = state) do
+  def handle_cast({:send, msg}, state) do
     slack_message(msg)
     |> dispatch(state)
 
